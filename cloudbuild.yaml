@@ -1,0 +1,30 @@
+steps:
+  # 构建 Docker 镜像
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/geminipy:$COMMIT_SHA', '.']
+  
+  # 推送 Docker 镜像到 Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/geminipy:$COMMIT_SHA']
+  
+  # 部署到 Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'geminipy'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/geminipy:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+# 存储镜像
+images:
+  - 'gcr.io/$PROJECT_ID/geminipy:$COMMIT_SHA'
+
+substitutions:
+  _REGION: us-central1  # 默认区域，可以在触发器配置中修改 
