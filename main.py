@@ -73,6 +73,26 @@ async def generate_content(
         logger.error(f"处理请求时出错: {str(e)}")
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {str(e)}")
 
+@app.post("/v1beta/models/{model_id}:generateContent")
+async def generate_content_beta(
+    request: Request,
+    model_id: str,
+    api_key: str = Depends(get_api_key)
+):
+    """转发 generateContent (beta) 请求到 Gemini API"""
+    try:
+        request_body = await request.json()
+        logger.info(f"接收到 generateContent (beta) 请求: 模型={model_id}")
+        url = f"{GEMINI_BASE_URL}/v1/models/{model_id}:generateContent?key={api_key}" # 注意：转发到 v1
+        response = await http_client.post(url, json=request_body)
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Gemini API 错误 (beta): {str(e)}")
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except Exception as e:
+        logger.error(f"处理 beta 请求时出错: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"内部服务器错误 (beta): {str(e)}")
+
 async def stream_generator(stream):
     """从 Gemini API 流式读取响应并转发"""
     async for chunk in stream.aiter_bytes():
@@ -110,6 +130,31 @@ async def stream_generate_content(
         logger.error(f"处理请求时出错: {str(e)}")
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {str(e)}")
 
+@app.post("/v1beta/models/{model_id}:streamGenerateContent")
+async def stream_generate_content_beta(
+    request: Request,
+    model_id: str,
+    api_key: str = Depends(get_api_key)
+):
+    """转发 streamGenerateContent (beta) 请求到 Gemini API 并流式返回结果"""
+    try:
+        request_body = await request.json()
+        logger.info(f"接收到 streamGenerateContent (beta) 请求: 模型={model_id}")
+        url = f"{GEMINI_BASE_URL}/v1/models/{model_id}:streamGenerateContent?key={api_key}" # 注意：转发到 v1
+        response = await http_client.post(url, json=request_body, timeout=60.0)
+        return StreamingResponse(
+            stream_generator(response),
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.headers.get("content-type", "application/json")
+        )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Gemini API 错误 (beta): {str(e)}")
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except Exception as e:
+        logger.error(f"处理 beta 请求时出错: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"内部服务器错误 (beta): {str(e)}")
+
 @app.get("/v1/models")
 async def list_models(
     api_key: str = Depends(get_api_key)
@@ -125,6 +170,22 @@ async def list_models(
     except Exception as e:
         logger.error(f"处理请求时出错: {str(e)}")
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {str(e)}")
+
+@app.get("/v1beta/models")
+async def list_models_beta(
+    api_key: str = Depends(get_api_key)
+):
+    """获取可用模型列表 (beta)"""
+    try:
+        url = f"{GEMINI_BASE_URL}/v1/models?key={api_key}" # 注意：转发到 v1
+        response = await http_client.get(url)
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Gemini API 错误 (beta): {str(e)}")
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except Exception as e:
+        logger.error(f"处理 beta 请求时出错: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"内部服务器错误 (beta): {str(e)}")
 
 @app.get("/v1/models/{model_id}")
 async def get_model(
@@ -142,6 +203,23 @@ async def get_model(
     except Exception as e:
         logger.error(f"处理请求时出错: {str(e)}")
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {str(e)}")
+
+@app.get("/v1beta/models/{model_id}")
+async def get_model_beta(
+    model_id: str,
+    api_key: str = Depends(get_api_key)
+):
+    """获取特定模型信息 (beta)"""
+    try:
+        url = f"{GEMINI_BASE_URL}/v1/models/{model_id}?key={api_key}" # 注意：转发到 v1
+        response = await http_client.get(url)
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Gemini API 错误 (beta): {str(e)}")
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except Exception as e:
+        logger.error(f"处理 beta 请求时出错: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"内部服务器错误 (beta): {str(e)}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
